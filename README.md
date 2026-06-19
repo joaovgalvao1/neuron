@@ -82,7 +82,7 @@ A dinâmica do jogo representa o processamento de ideias e memórias em um cére
 ## Instruções de uso
 <!-- Como jogar -->
 
-* O jogo iniciará com o piscar de todas as LEDs para sinalizar seu funcionamento. Encerrado isso, uma das fileiras de LEDs (de uma das cores) acenderá por um curto intervalo de tempo para indicar o jogador que será o __Host__. O __Host__ é o jogador responsável por dar os comandos do jogo, como __"Acender LED vermelho"__ quando o jogador correspondente acertar a resposta de um enigma.
+* O jogo iniciará com o piscar de todas as LEDs para sinalizar seu funcionamento. Encerrado isso, uma das fileiras de LEDs (de uma das cores) acenderá por um curto intervalo de tempo para indicar o jogador que será o __Host__. O __Host__ é o jogador responsável por dar os comandos do jogo, como __"Ponto vermelho"__ -> acende um led vermelho - quando o jogador correspondente acertar a resposta de um enigma.
 
 * De tempos em tempos, um som vai ser emitido do jogo, que pode sonar de forma __contínua__ ou __intercalada__. Para o primeiro caso (som contínuo), __qualquer jogador pode responder o enigma que estiver na tela__, mesmo que não seja sua rodada. Para o segundo caso (som intercalado), a partir da próxima rodada o jogo __inverterá seu sentido__ (considere que a ordem dos jogadores deve começar no sentido horário)
 
