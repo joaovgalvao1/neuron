@@ -10,7 +10,7 @@
 <!-- Por que foi criado -->
 <img src="logo_neuron.png" alt="Logo da Neuron" width="42%">
 
-___NEURON___ é um jogo de enigmas em tabuleiro físico controlado por sensor de voz, permitindo-lhe ser jogado por pessoas com deficiências motoras graves. 
+___NEURON___ é um jogo de enigmas em tabuleiro físico robótico controlado por sensor de voz, permitindo-lhe ser jogado por pessoas com deficiências motoras graves. 
 
 A dinâmica do jogo representa o processamento de ideias e memórias em um cérebro confuso. O tabuleiro é o mapa dessa mente em confusão, onde você assume o papel de um pulso elétrico destinado a restaurar a ordem. Faça-o antes dos seus adversários, ou perca-se para sempre nas lacunas do esquecimento.
 
