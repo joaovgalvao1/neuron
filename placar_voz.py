@@ -301,7 +301,7 @@ def executar_acao_enigma(acao):
 app = Flask(__name__)
 
 @app.route("/")
-def index(): return send_file(os.path.join(DIRETORIO_ATUAL, "perguntas.html"))
+def index(): return send_file(os.path.join(DIRETORIO_ATUAL, "index.html"))
 
 @app.route("/Estampa_Neuron.png")
 def estampa():
