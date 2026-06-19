@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Enigmas — Neuron</title>
+<link rel="icon" type="image/png" href="logo_neuron.png" />
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Exo+2:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --azul-escuro: #0a0e1a;
+    --azul-claro:  #2a7bc8;
+    --dourado:     #c9a84c;
+    --dourado-dim: #7a6020;
+    --texto:       #e8f0ff;
+    --texto-dim:   #6a80aa;
+    --verde-resp:  #00e5a0;
+    --vermelho:    #ff4757;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Exo 2', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    background: var(--azul-escuro);
+  }
+
+  .bg-estampa {
+    position: fixed; inset: 0;
+    background-image: url('Estampa_Neuron.png');
+    background-size: cover;
+    background-position: center;
+    opacity: 0.65;
+    z-index: 0;
+  }
+
+  .bg-gradiente {
+    position: fixed; inset: 0;
+    background: linear-gradient(160deg,
+      rgba(10,14,26,0.92) 0%,
+      rgba(18,35,70,0.85) 50%,
+      rgba(10,20,45,0.92) 100%);
+    z-index: 1;
+  }
+
+  .wrapper {
+    position: relative; z-index: 10;
+    width: 100%; max-width: 900px;
+    padding: 40px 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+  }
+
+  .logo {
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.95rem; font-weight: 700;
+    letter-spacing: 0.45em;
+    color: var(--dourado);
+    opacity: 0.9;
+  }
+  .logo span { padding-left: 0.45em; }  /* compensa o letter-spacing no fim (centraliza) */
+  .logo-img {
+    height: 66px; width: auto;
+    animation: logoGlow 3.5s ease-in-out infinite;
+  }
+  @keyframes logoGlow {
+    0%, 100% { filter: drop-shadow(0 0 7px rgba(42,123,200,0.45)); }
+    50%      { filter: drop-shadow(0 0 16px rgba(42,123,200,0.85)); }
+  }
+
+  .contador {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem; letter-spacing: 0.3em;
+    color: var(--texto-dim);
+    margin-top: -20px;
+  }
+  .contador span { color: var(--azul-claro); font-weight: 700; }
+
+  .card { width: 100%; position: relative; }
+
+  .card::before, .card::after {
+    content: ''; position: absolute;
+    width: 32px; height: 32px;
+    border-color: var(--dourado); border-style: solid; opacity: 0.5;
+  }
+  .card::before { top: -6px; left: -6px; border-width: 2px 0 0 2px; }
+  .card::after  { bottom: -6px; right: -6px; border-width: 0 2px 2px 0; }
+
+  .card-inner {
+    background: rgba(10,18,40,0.75);
+    border: 1px solid rgba(42,123,200,0.3);
+    backdrop-filter: blur(12px);
+    padding: 52px 64px;
+    text-align: center;
+    position: relative;
+    transition: border-color 0.4s ease, background 0.4s ease;
+  }
+
+  .card-inner::before {
+    content: ''; position: absolute;
+    top: 0; left: 10%; right: 10%; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--azul-claro), transparent);
+    opacity: 0.6;
+  }
+
+  .card-inner.erro {
+    border-color: rgba(255,71,87,0.8) !important;
+    animation: shake 0.4s ease;
+  }
+
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20%      { transform: translateX(-8px); }
+    40%      { transform: translateX(8px); }
+    60%      { transform: translateX(-5px); }
+    80%      { transform: translateX(5px); }
+  }
+
+  .msg-erro {
+    position: absolute;
+    top: 14px; left: 50%; transform: translateX(-50%);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.6rem; letter-spacing: 0.2em;
+    color: var(--vermelho);
+    text-transform: uppercase;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .msg-erro.visivel { opacity: 1; }
+
+  .label {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.6rem; letter-spacing: 0.4em;
+    text-transform: uppercase; margin-bottom: 20px;
+  }
+  .label-enigma   { color: var(--dourado); opacity: 0.7; }
+  .label-resposta { color: var(--verde-resp); opacity: 0.7; }
+
+  .sep {
+    display: flex; align-items: center; gap: 12px;
+    margin: 0 auto 8px; width: 180px; opacity: 0.35;
+  }
+  .sep-line { flex: 1; height: 1px; }
+  .sep-enigma   .sep-line { background: var(--dourado); }
+  .sep-resposta .sep-line { background: var(--verde-resp); }
+  .sep-dot { font-size: 0.5rem; }
+  .sep-enigma   .sep-dot { color: var(--dourado); }
+  .sep-resposta .sep-dot { color: var(--verde-resp); }
+
+  .pergunta-texto {
+    font-size: 2rem; font-weight: 300; font-style: italic;
+    line-height: 1.6; color: var(--texto);
+    margin: 28px 0 8px;
+  }
+  
+  /* ESTILOS DAS ALTERNATIVAS ADICIONADOS AQUI */
+  .alternativas-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 36px;
+  }
+
+  .alternativa-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    color: var(--texto);
+    background: rgba(42, 123, 200, 0.05);
+    border: 1px solid rgba(42, 123, 200, 0.3);
+    padding: 10px 20px;
+    border-radius: 4px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+  }
+
+  .alt-letra {
+    font-weight: 700;
+    color: var(--dourado);
+    border: 1px solid rgba(201, 168, 76, 0.5);
+    border-radius: 3px;
+    padding: 2px 8px;
+    font-size: 0.7rem;
+  }
+
+  .resposta-texto {
+    font-family: 'Orbitron', monospace;
+    font-size: 2.2rem; font-weight: 700;
+    color: var(--verde-resp); margin: 24px 0 8px;
+    letter-spacing: 0.05em;
+    text-shadow: 0 0 30px rgba(0,229,160,0.4);
+  }
+
+  .card.resposta .card-inner {
+    border-color: rgba(0,229,160,0.3);
+    background: rgba(0,20,15,0.8);
+  }
+  .card.resposta .card-inner::before {
+    background: linear-gradient(90deg, transparent, var(--verde-resp), transparent);
+  }
+
+  .botoes {
+    display: flex; gap: 16px;
+    align-items: center; justify-content: center;
+  }
+
+  .btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.6rem; letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 13px 28px;
+    border: 1px solid; border-radius: 2px;
+    cursor: pointer; background: transparent;
+    transition: all 0.2s ease;
+  }
+
+  .btn-nav { color: var(--texto-dim); border-color: rgba(42,123,200,0.3); }
+  .btn-nav:hover:not(:disabled) {
+    color: var(--azul-claro); border-color: var(--azul-claro);
+    background: rgba(42,123,200,0.08);
+  }
+  .btn-nav:disabled { opacity: 0.15; cursor: not-allowed; }
+
+  .btn-resposta { color: var(--verde-resp); border-color: rgba(0,229,160,0.4); padding: 13px 36px; }
+  .btn-resposta:hover { background: rgba(0,229,160,0.08); border-color: var(--verde-resp); }
+
+  .btn-pergunta { color: var(--dourado); border-color: rgba(201,168,76,0.4); padding: 13px 36px; }
+  .btn-pergunta:hover { background: rgba(201,168,76,0.08); border-color: var(--dourado); }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .card.animando { animation: fadeUp 0.4s ease; }
+
+  .status {
+    position: fixed; bottom: 18px; right: 24px; z-index: 20;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--dourado-dim);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  .status-dot.ok { background: var(--verde-resp); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.2} }
+  .status-txt {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.5rem; letter-spacing: 0.15em;
+    color: var(--texto-dim); text-transform: uppercase;
+  }
+
+  /* ---- Aviso de status do microfone ---- */
+  .aviso-voz {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    z-index: 50;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.58rem; letter-spacing: 0.13em; text-transform: uppercase;
+    padding: 10px 22px; border-radius: 4px; border: 1px solid;
+    backdrop-filter: blur(8px);
+    display: none; align-items: center; gap: 9px; max-width: 92vw; text-align: center;
+    opacity: 1; transition: opacity 0.8s ease;
+  }
+  .aviso-voz.visivel { display: flex; animation: fadeUp 0.3s ease; }
+  .aviso-voz.esmaecendo { opacity: 0; }
+  .aviso-voz.carregando {
+    color: var(--dourado); border-color: rgba(201,168,76,0.5);
+    background: rgba(36,28,6,0.82);
+  }
+  .aviso-voz.erro {
+    color: var(--vermelho); border-color: rgba(255,71,87,0.6);
+    background: rgba(40,8,12,0.86);
+  }
+  .aviso-voz.pronto {
+    color: var(--verde-resp); border-color: rgba(0,229,160,0.5);
+    background: rgba(4,30,22,0.82);
+  }
+  .aviso-voz.desativado {
+    color: var(--vermelho); border-color: rgba(255,71,87,0.45);
+    background: rgba(28,12,16,0.85);
+  }
+
+  /* Indicador pequeno e permanente: microfone ligado (canto superior direito). */
+  .mic-indicador {
+    position: fixed; top: 16px; right: 18px; z-index: 25;
+    display: none; align-items: center; gap: 7px;
+    font-family: 'Orbitron', monospace; font-size: 0.5rem; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--verde-resp); opacity: 0.85;
+  }
+  .mic-indicador.on { display: flex; }
+  .mic-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--verde-resp); box-shadow: 0 0 6px var(--verde-resp);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  .mic-indicador.desativado { color: var(--vermelho); }
+  .mic-indicador.desativado .mic-dot {
+    background: var(--vermelho); box-shadow: 0 0 6px var(--vermelho); animation: none;
+  }
+
+  /* ---- Painel de comandos de voz ---- */
+  .comandos-fab {
+    position: fixed; bottom: 18px; left: 24px; z-index: 30;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .btn-comandos {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.55rem; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--dourado); background: rgba(10,18,40,0.85);
+    border: 1px solid rgba(201,168,76,0.4); border-radius: 4px;
+    padding: 10px 16px; cursor: pointer;
+    backdrop-filter: blur(8px); transition: all 0.2s ease;
+  }
+  .btn-comandos:hover { background: rgba(201,168,76,0.12); border-color: var(--dourado); }
+  .comandos-dica {
+    font-size: 0.62rem; font-style: italic;
+    color: var(--texto-dim); opacity: 0.55;
+    white-space: nowrap; pointer-events: none;
+  }
+
+  .comandos-overlay {
+    position: fixed; inset: 0; z-index: 40;
+    background: rgba(5,8,16,0.8); backdrop-filter: blur(4px);
+    display: none; align-items: center; justify-content: center; padding: 24px;
+  }
+  .comandos-overlay.aberto { display: flex; animation: fadeUp 0.25s ease; }
+
+  .comandos-painel {
+    position: relative;
+    width: 100%; max-width: 900px; max-height: 96vh;
+    background: rgba(10,18,40,0.97);
+    border: 1px solid rgba(42,123,200,0.4); border-radius: 6px;
+    padding: 28px 40px 22px;
+  }
+  /* Sem barra de rolagem: o conteúdo é distribuído em 2 colunas para caber na tela
+     (o usuário controla por voz e não consegue rolar). */
+  .cmd-corpo { column-count: 2; column-gap: 40px; }
+  @media (max-width: 600px) { .cmd-corpo { column-count: 1; } }
+  .comandos-painel h2 {
+    font-family: 'Orbitron', monospace; font-size: 0.85rem; font-weight: 700;
+    letter-spacing: 0.25em; text-transform: uppercase; color: var(--dourado);
+    text-align: center; margin-bottom: 18px;
+  }
+  .comandos-fechar {
+    position: absolute; top: 12px; right: 16px;
+    font-size: 1.3rem; line-height: 1; color: var(--texto-dim);
+    background: none; border: none; cursor: pointer;
+  }
+  .comandos-fechar:hover { color: var(--vermelho); }
+
+  .cmd-secao { margin-bottom: 16px; break-inside: avoid; }
+  .cmd-secao h3 {
+    font-family: 'Orbitron', monospace; font-size: 0.6rem; letter-spacing: 0.3em;
+    text-transform: uppercase; color: var(--azul-claro);
+    border-bottom: 1px solid rgba(42,123,200,0.25); padding-bottom: 6px; margin-bottom: 10px;
+  }
+  .cmd-item { display: flex; gap: 10px; align-items: baseline; padding: 3px 0; flex-wrap: wrap; }
+  .cmd-frase { color: var(--texto); font-style: italic; }
+  .cmd-frase b { color: var(--dourado); font-style: normal; }
+  .cmd-desc { color: var(--texto-dim); font-size: 0.82rem; }
+  .cmd-cores { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 10px; font-size: 0.85rem; color: var(--texto-dim); }
+  .cmd-cores span { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+
+  /* ---- Confirmação de encerramento ---- */
+  .encerrar-overlay {
+    position: fixed; inset: 0; z-index: 60;
+    background: rgba(5,8,16,0.88); backdrop-filter: blur(5px);
+    display: none; align-items: center; justify-content: center; padding: 24px;
+  }
+  .encerrar-overlay.aberto { display: flex; animation: fadeUp 0.25s ease; }
+  .encerrar-painel {
+    width: 100%; max-width: 520px; text-align: center;
+    background: rgba(20,10,14,0.97);
+    border: 1px solid rgba(255,71,87,0.45); border-radius: 6px;
+    padding: 40px 44px;
+  }
+  .encerrar-painel h2 {
+    font-family: 'Orbitron', monospace; font-size: 1rem; font-weight: 700;
+    letter-spacing: 0.12em; color: var(--vermelho); margin-bottom: 16px;
+  }
+  .encerrar-painel p { color: var(--texto); font-size: 1.05rem; line-height: 1.5; margin-bottom: 28px; }
+  .encerrar-painel p b { color: var(--dourado); }
+  .encerrar-botoes { display: flex; gap: 16px; justify-content: center; }
+  .btn-encerrar-sim { color: var(--vermelho); border-color: rgba(255,71,87,0.5); padding: 13px 30px; }
+  .btn-encerrar-sim:hover { background: rgba(255,71,87,0.1); border-color: var(--vermelho); }
+  .btn-encerrar-nao { color: var(--verde-resp); border-color: rgba(0,229,160,0.5); padding: 13px 30px; }
+  .btn-encerrar-nao:hover { background: rgba(0,229,160,0.1); border-color: var(--verde-resp); }
+</style>
+</head>
+<body>
+
+<div class="bg-estampa"></div>
+<div class="bg-gradiente"></div>
+
+<div class="aviso-voz" id="aviso-voz">
+  <span id="aviso-voz-icone">🎤</span>
+  <span id="aviso-voz-texto"></span>
+</div>
+
+<div class="mic-indicador" id="mic-indicador">
+  <span class="mic-dot"></span> <span id="mic-indicador-texto">🎙️ ouvindo</span>
+</div>
+
+<div class="wrapper">
+
+  <div class="logo">
+    <img class="logo-img" src="logo_neuron.png" alt="Logo Neuron" />
+    <span>Neuron</span>
+  </div>
+  <div class="contador">Enigma <span id="num">1</span> de <span id="total">32</span></div>
+
+  <div class="card" id="card">
+    <div class="card-inner" id="card-inner">
+
+      <div class="msg-erro" id="msg-erro">✕ Resposta incorreta</div>
+
+      <div id="tela-pergunta">
+        <div class="label label-enigma">✦ Enigma ✦</div>
+        <div class="sep sep-enigma">
+          <div class="sep-line"></div><div class="sep-dot">◆</div><div class="sep-line"></div>
+        </div>
+        <p class="pergunta-texto" id="texto-pergunta">Carregando...</p>
+        
+        <div class="alternativas-grid" id="alternativas-container"></div>
+      </div>
+
+      <div id="tela-resposta" style="display:none;">
+        <div class="label label-resposta">✦ Resposta ✦</div>
+        <div class="sep sep-resposta">
+          <div class="sep-line"></div><div class="sep-dot">◆</div><div class="sep-line"></div>
+        </div>
+        <p class="resposta-texto" id="texto-resposta">—</p>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="botoes">
+    <button class="btn btn-nav" id="btn-anterior" onclick="navegar('/anterior')">← Anterior</button>
+    <button class="btn btn-resposta" id="btn-resposta" onclick="navegar('/resposta')">Mostrar Resposta</button>
+    <button class="btn btn-pergunta" id="btn-pergunta" onclick="navegar('/pergunta')" style="display:none;">Ocultar Resposta</button>
+    <button class="btn btn-nav" id="btn-proximo" onclick="navegar('/proximo')">Próximo →</button>
+  </div>
+
+</div>
+
+<div class="status">
+  <div class="status-dot" id="status-dot"></div>
+  <span class="status-txt" id="status-txt">Conectando...</span>
+</div>
+
+<div class="comandos-fab">
+  <button class="btn-comandos" onclick="comandoMenu(true)">🎤 Comandos de voz</button>
+  <span class="comandos-dica">diga “abrir comandos”</span>
+</div>
+
+<div class="comandos-overlay" id="comandos-overlay" onclick="if(event.target===this)comandoMenu(false)">
+  <div class="comandos-painel" role="dialog" aria-modal="true" aria-label="Lista de comandos de voz">
+    <button class="comandos-fechar" onclick="comandoMenu(false)" title="Fechar" aria-label="Fechar painel de comandos">✕</button>
+    <h2>🎤 Comandos de Voz</h2>
+
+    <div class="cmd-corpo">
+    <div class="cmd-secao">
+      <h3>Navegação</h3>
+      <div class="cmd-item"><span class="cmd-frase">“<b>Próximo enigma</b>”</span><span class="cmd-desc">— avança para o próximo enigma</span></div>
+      <div class="cmd-item"><span class="cmd-frase">“<b>Enigma anterior</b>”</span><span class="cmd-desc">— volta para o enigma anterior</span></div>
+      <div class="cmd-item"><span class="cmd-frase">“<b>Mostrar resposta</b>”</span><span class="cmd-desc">— revela a resposta</span></div>
+      <div class="cmd-item"><span class="cmd-frase">“<b>Mostrar enigma</b>”</span><span class="cmd-desc">— esconde a resposta de novo</span></div>
+    </div>
+
+    <div class="cmd-secao">
+      <h3>Responder o enigma</h3>
+      <div class="cmd-item"><span class="cmd-frase">“<b>Opção A</b>”</span><span class="cmd-desc">— também vale “Alternativa A” ou “Letra A”</span></div>
+      <div class="cmd-desc" style="margin-top:6px">O mesmo serve para <b style="color:var(--dourado)">B</b>, <b style="color:var(--dourado)">C</b> e <b style="color:var(--dourado)">D</b>.</div>
+    </div>
+
+    <div class="cmd-secao">
+      <h3>Placar — LEDs dos times</h3>
+      <div class="cmd-item"><span class="cmd-frase">“<b>Ponto</b> [cor]”</span><span class="cmd-desc">— soma 1 ponto</span></div>
+      <div class="cmd-item"><span class="cmd-frase">“<b>Dois pontos</b> [cor]”</span><span class="cmd-desc">— soma 2 pontos</span></div>
+      <div class="cmd-item"><span class="cmd-frase">“<b>Menos ponto</b> [cor]”</span><span class="cmd-desc">— tira 1 ponto</span></div>
+      <div class="cmd-item"><span class="cmd-frase">“<b>Desligar</b> [cor]”</span><span class="cmd-desc">— zera o time</span></div>
+      <div class="cmd-item"><span class="cmd-frase">“<b>Desligar tudo</b>”</span><span class="cmd-desc">— zera todos os times</span></div>
+      <div class="cmd-cores">
+        <span><i class="dot" style="background:#ff4757"></i> vermelho</span>
+        <span><i class="dot" style="background:#00e5a0"></i> verde</span>
+        <span><i class="dot" style="background:#2a7bc8"></i> azul</span>
+        <span><i class="dot" style="background:#c9a84c"></i> amarelo</span>
+      </div>
+    </div>
+
+    <div class="cmd-secao">
+      <h3>Microfone</h3>
+      <div class="cmd-item"><span class="cmd-frase">“<b>Desativar microfone</b>”</span><span class="cmd-desc">— pausa os comandos de voz</span></div>
+      <div class="cmd-item"><span class="cmd-frase">“<b>Ativar microfone</b>”</span><span class="cmd-desc">— retoma (único comando aceito enquanto desativado)</span></div>
+    </div>
+
+    <div class="cmd-secao">
+      <h3>Este painel</h3>
+      <div class="cmd-item"><span class="cmd-frase">“<b>Abrir comandos</b>”</span><span class="cmd-desc">— também “Abrir menu” / “Mostrar menu”</span></div>
+      <div class="cmd-item"><span class="cmd-frase">“<b>Fechar comandos</b>”</span><span class="cmd-desc">— também “Fechar menu” / “Esconder comandos”</span></div>
+    </div>
+
+    <div class="cmd-secao">
+      <h3>Sistema</h3>
+      <div class="cmd-item"><span class="cmd-frase">“<b>Encerrar aplicação</b>”</span><span class="cmd-desc">— fecha o programa (pede confirmação na tela)</span></div>
+    </div>
+
+    </div><!-- /cmd-corpo -->
+
+    <div class="cmd-desc" style="text-align:center;margin-top:8px">
+      Não precisa falar exatamente igual — o sistema entende variações parecidas.
+    </div>
+  </div>
+</div>
+
+<div class="encerrar-overlay" id="encerrar-overlay">
+  <div class="encerrar-painel" role="alertdialog" aria-modal="true" aria-label="Confirmar encerramento da aplicação">
+    <h2 id="encerrar-titulo">Encerrar a aplicação?</h2>
+    <p id="encerrar-instrucao">Diga “<b>confirmar</b>” para encerrar ou “<b>cancelar</b>” para voltar.</p>
+    <div class="encerrar-botoes" id="encerrar-botoes">
+      <button class="btn btn-encerrar-sim" onclick="fetch('/encerrar/confirmar').then(atualizar)">Confirmar</button>
+      <button class="btn btn-encerrar-nao" onclick="fetch('/encerrar/cancelar').then(atualizar)">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  let estadoAnterior = null;
+  let feedbackContadorAnterior = -1;
+  let menuAnterior = false;
+  let vozAnterior = null;
+  let fadeTimer = null;
+
+  // Mostra a faixa de status do microfone. O "ouvindo" (verde) esmaece após alguns segundos.
+  function mostrarAvisoVoz(voz) {
+    const av = document.getElementById('aviso-voz');
+    const ic = document.getElementById('aviso-voz-icone');
+    const tx = document.getElementById('aviso-voz-texto');
+    clearTimeout(fadeTimer);
+    if (voz === 'ouvindo') {
+      av.className = 'aviso-voz visivel pronto';
+      ic.textContent = '🎙️'; tx.textContent = 'Microfone reconhecido — comandos de voz ativos';
+      fadeTimer = setTimeout(() => {        // esmaece 4s depois e some
+        av.classList.add('esmaecendo');
+        setTimeout(() => av.classList.remove('visivel', 'esmaecendo'), 800);
+      }, 4000);
+    } else if (voz === 'erro') {
+      av.className = 'aviso-voz visivel erro';
+      ic.textContent = '⚠️'; tx.textContent = 'Microfone indisponível — comandos de voz desativados (use os botões)';
+    } else if (voz === 'desativado') {
+      av.className = 'aviso-voz visivel desativado';
+      ic.textContent = '🔇'; tx.textContent = 'Microfone desativado — diga “ativar microfone” para retomar';
+    } else {
+      av.className = 'aviso-voz visivel carregando';
+      ic.textContent = '🎤'; tx.textContent = 'Iniciando reconhecimento de voz…';
+    }
+  }
+
+  // Aplica o estado do painel só na tela (usado pelo polling do /estado).
+  function aplicarMenu(abrir) {
+    document.getElementById('comandos-overlay').classList.toggle('aberto', abrir);
+  }
+  // Ação do usuário (botão/✕/ESC): avisa o servidor p/ ficar em sincronia com a voz, e aplica.
+  function comandoMenu(abrir) {
+    menuAnterior = abrir;
+    fetch('/menu/' + (abrir ? 'abrir' : 'fechar'));
+    aplicarMenu(abrir);
+  }
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') comandoMenu(false); });
+
+  async function navegar(rota) {
+    await fetch(rota);
+    await atualizar();
+  }
+
+  function mostrarErro() {
+    const cardInner = document.getElementById('card-inner');
+    const msgErro   = document.getElementById('msg-erro');
+    cardInner.classList.remove('erro');
+    msgErro.classList.remove('visivel');
+    void cardInner.offsetWidth;
+    cardInner.classList.add('erro');
+    msgErro.classList.add('visivel');
+    setTimeout(() => {
+      cardInner.classList.remove('erro');
+      msgErro.classList.remove('visivel');
+    }, 3000);
+  }
+
+  async function atualizar() {
+    try {
+      const res  = await fetch('/estado');
+      const data = await res.json();
+
+      // Painel de comandos controlado por voz: reage só quando o servidor muda.
+      if (data.menu !== menuAnterior) { menuAnterior = data.menu; aplicarMenu(data.menu); }
+
+      // Faixa de status: dispara só quando o status muda (p/ o "ouvindo" poder esmaecer).
+      if (data.voz !== vozAnterior) { vozAnterior = data.voz; mostrarAvisoVoz(data.voz); }
+      // Indicador pequeno no canto (verde = ouvindo, vermelho = desativado, oculto nos demais).
+      const mic = document.getElementById('mic-indicador');
+      const micTxt = document.getElementById('mic-indicador-texto');
+      if (data.voz === 'ouvindo') {
+        mic.className = 'mic-indicador on'; micTxt.textContent = '🎙️ ouvindo';
+      } else if (data.voz === 'desativado') {
+        mic.className = 'mic-indicador on desativado'; micTxt.textContent = '🔇 desativado';
+      } else {
+        mic.className = 'mic-indicador';
+      }
+
+      // Confirmação de encerramento da aplicação.
+      const enc = document.getElementById('encerrar-overlay');
+      if (data.encerrar === 'confirmando') {
+        enc.classList.add('aberto');
+        document.getElementById('encerrar-titulo').textContent = 'Encerrar a aplicação?';
+        document.getElementById('encerrar-instrucao').innerHTML = 'Diga “<b>confirmar</b>” para encerrar ou “<b>cancelar</b>” para voltar.';
+        document.getElementById('encerrar-botoes').style.display = 'flex';
+      } else if (data.encerrar === 'encerrando') {
+        enc.classList.add('aberto');
+        document.getElementById('encerrar-titulo').textContent = 'Encerrando…';
+        document.getElementById('encerrar-instrucao').textContent = 'A aplicação está sendo fechada.';
+        document.getElementById('encerrar-botoes').style.display = 'none';
+      } else {
+        enc.classList.remove('aberto');
+      }
+
+      document.getElementById('num').textContent            = data.enigma_numero;
+      document.getElementById('total').textContent          = data.total;
+      document.getElementById('texto-pergunta').textContent = data.pergunta;
+
+      document.getElementById('texto-resposta').textContent =
+        data.correta ? `${data.correta.toUpperCase()}) ${data.resposta}` : data.resposta;
+
+      // ATUALIZAÇÃO DAS ALTERNATIVAS NA TELA (A / B / C / D)
+      const altsContainer = document.getElementById('alternativas-container');
+      altsContainer.innerHTML = ''; // Limpa as alternativas da pergunta anterior
+      if (data.alternativas) {
+        ['a', 'b', 'c', 'd'].forEach(letra => {
+          const texto = data.alternativas[letra];
+          if (!texto) return;
+          const div = document.createElement('div');
+          div.className = 'alternativa-item';
+          div.innerHTML = `<span class="alt-letra">${letra.toUpperCase()}</span> ${texto}`;
+          altsContainer.appendChild(div);
+        });
+      }
+
+      // Detecta novo erro pelo contador
+      if (data.feedback === 'erro' && data.feedback_contador !== feedbackContadorAnterior) {
+        feedbackContadorAnterior = data.feedback_contador;
+        mostrarErro();
+      }
+
+      // Só redesenha o card se enigma ou tela mudou
+      const chave = `${data.enigma_index}|${data.tela}`;
+      if (chave === estadoAnterior) return;
+      estadoAnterior = chave;
+
+      const card     = document.getElementById('card');
+      const telaPerg = document.getElementById('tela-pergunta');
+      const telaResp = document.getElementById('tela-resposta');
+      const btnResp  = document.getElementById('btn-resposta');
+      const btnPerg  = document.getElementById('btn-pergunta');
+      const btnAnt   = document.getElementById('btn-anterior');
+      const btnProx  = document.getElementById('btn-proximo');
+
+      card.classList.remove('animando', 'resposta');
+      void card.offsetWidth;
+
+      if (data.tela === 'resposta') {
+        telaPerg.style.display = 'none';
+        telaResp.style.display = 'block';
+        btnResp.style.display  = 'none';
+        btnPerg.style.display  = 'inline-block';
+        card.classList.add('resposta', 'animando');
+      } else {
+        telaResp.style.display = 'none';
+        telaPerg.style.display = 'block';
+        btnResp.style.display  = 'inline-block';
+        btnPerg.style.display  = 'none';
+        card.classList.add('animando');
+      }
+
+      btnAnt.disabled  = data.enigma_index === 0;
+      btnProx.disabled = data.enigma_index === data.total - 1;
+
+      document.getElementById('status-dot').className = 'status-dot ok';
+      document.getElementById('status-txt').textContent = 'Conectado';
+
+    } catch (e) {
+      document.getElementById('status-dot').className = 'status-dot';
+      document.getElementById('status-txt').textContent = 'Aguardando servidor...';
+    }
+  }
+
+  atualizar();
+  setInterval(atualizar, 300);
+</script>
+
+</body>
+</html>
