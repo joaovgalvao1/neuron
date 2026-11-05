@@ -61,7 +61,7 @@ A dinâmica do jogo representa o processamento de ideias e memórias em um cére
 <!-- Montagem -->
 1. Instale [__Arduino IDE__](https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://support.arduino.cc/hc/en-us/articles/360019833020-Download-and-install-Arduino-IDE&ved=2ahUKEwiYlInwjJGVAxV2iJUCHW8TDz8QFnoECB8QAQ&usg=AOvVaw0s79uBSeG4pn1yM8_D6FiB)
 1. Instale ou tenha instalado o [__VSCode__](https://code.visualstudio.com/download) (ou outra IDE de sua preferência) em seu computador.
-2. Após isso, instale [__Python__](https://www.python.org/downloads/) em sua computador.
+2. Após isso, instale [__Python__](https://www.python.org/downloads/) em seu computador.
 3. Copie o comando ___pip install -U numpy pyserial sounddevice flask faster-whisper rapidfuzz___, cole no Terminal (Acesse com __Control + J__) da IDE instalada e pressione __Enter__.
 4. Com o repositório Github do _NEURON_ aberto, clique no botão verde __Code__. Com __HTTPS__ selecionado, clique em __Download ZIP__ para instalar os códigos do jogo no seu computador.
 5. Abra o __Explorador de Arquivos__ do seu computador. Pesquise o arquivo ZIP pelo nome como foi salvo. Ao encontrá-lo, selecione-o e pressione __Enter__ para descomprimí-lo.
