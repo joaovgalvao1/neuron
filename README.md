@@ -29,6 +29,10 @@ A dinâmica do jogo representa o processamento de ideias e memórias em um cére
 
 
 ## 💻 Componentes e Tecnologias
+
+<details>
+<summary><b>Todos as tecnologias e componentes utilizados na composição do projeto</b> (clique aqui para acessar)</summary>
+
 ### Hardware (Estrutura Física e Eletrônica)
 * **Arduino Mega 2560:** Placa microcontroladora principal responsável por receber os comandos e controlar a iluminação.
 
@@ -56,6 +60,7 @@ A dinâmica do jogo representa o processamento de ideias e memórias em um cére
 
 * **JavaScript:** Lógica de interatividade na página web, responsável por gerir os eventos do utilizador e fazer a ponte de comunicação dinâmica com a validação em Python.
 
+</details>
 
 ## 📋 Instruções de instalação
 <!-- Montagem -->
