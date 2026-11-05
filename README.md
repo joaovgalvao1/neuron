@@ -1,5 +1,5 @@
 <!-- # Título -->
-# _NEURON_ <img src="logo_neuron.png" alt="Logo da Neuron" width="3.5%">
+# <img src="logo_neuron.png" alt="Logo da Neuron" width="3.5%"> _NEURON_
 
 <!-- ## Descrição -->
 <!-- O que é o jogo -->
@@ -14,7 +14,7 @@ ___NEURON___ é um jogo de enigmas em tabuleiro físico robótico controlado por
 
 A dinâmica do jogo representa o processamento de ideias e memórias em um cérebro confuso. O tabuleiro é o mapa dessa mente em confusão, onde você assume o papel de um pulso elétrico destinado a restaurar a ordem. Faça-o antes dos seus adversários, ou perca-se para sempre nas lacunas do esquecimento.
 
-## Características
+## 📖 Características
 * **Acessibilidade e Inclusão:** Controle do jogo realizado inteiramente por comandos de voz, garantindo a participação autônoma e integradora de pessoas com deficiências motoras graves.
 
 * **Interface Digital:** Plataforma visual onde os enigmas são apresentados aos jogadores e onde a validação das respostas acontece.
@@ -28,7 +28,7 @@ A dinâmica do jogo representa o processamento de ideias e memórias em um cére
 * **Multijogador Competitivo:** Desenvolvido para partidas dinâmicas e emocionantes no formato "cada um por si", reunindo 4 jogadores.
 
 
-## Componentes e Tecnologias
+## 💻 Componentes e Tecnologias
 ### Hardware (Estrutura Física e Eletrônica)
 * **Arduino Mega 2560:** Placa microcontroladora principal responsável por receber os comandos e controlar a iluminação.
 
@@ -57,8 +57,11 @@ A dinâmica do jogo representa o processamento de ideias e memórias em um cére
 * **JavaScript:** Lógica de interatividade na página web, responsável por gerir os eventos do utilizador e fazer a ponte de comunicação dinâmica com a validação em Python.
 
 
-## Instruções de instalação
+## 📋 Instruções de instalação
 <!-- Montagem -->
+<details>
+<summary><b>Passo a passo de como instalar o jogo</b> (clique aqui para acessar)</summary>
+
 1. Instale [__Arduino IDE__](https://www.google.com/url?sa=t&source=web&rct=j&opi=89978449&url=https://support.arduino.cc/hc/en-us/articles/360019833020-Download-and-install-Arduino-IDE&ved=2ahUKEwiYlInwjJGVAxV2iJUCHW8TDz8QFnoECB8QAQ&usg=AOvVaw0s79uBSeG4pn1yM8_D6FiB)
 1. Instale ou tenha instalado o [__VSCode__](https://code.visualstudio.com/download) (ou outra IDE de sua preferência) em seu computador.
 2. Após isso, instale [__Python__](https://www.python.org/downloads/) em seu computador.
@@ -79,8 +82,12 @@ A dinâmica do jogo representa o processamento de ideias e memórias em um cére
 >
 > 🎙️ __Na 1ª execução__, o modelo de voz é baixado automaticamente (precisa de internet só nessa vez); depois roda offline.
 
-## Instruções de uso
+</details>
+
+## 📝 Instruções de uso
 <!-- Como jogar -->
+<details>
+<summary><b>Passo a passo de como navegar no jogo</b> (clique aqui para acessar)</summary>
 
 * O jogo iniciará com o piscar de todas as LEDs para sinalizar seu funcionamento. Encerrado isso, uma das fileiras de LEDs (de uma das cores) acenderá por um curto intervalo de tempo para indicar o jogador que será o __Host__. O __Host__ é o jogador responsável por dar os comandos do jogo, como __"Ponto vermelho"__ -> acende um led vermelho - quando o jogador correspondente acertar a resposta de um enigma.
 
@@ -125,8 +132,9 @@ Cores disponíveis: __vermelho__, __verde__, __azul__, __amarelo__.
 #### &emsp;__Encerrar a aplicação__
 * "Encerrar aplicação" — abre uma confirmação na tela; confirme com __"confirmar"__ ou desista com __"cancelar"__
 
+</details>
 
-## Licença
+## 🔰 Licença
 
 © 2026 — Projeto _NEURON_. __Todos os direitos reservados.__
 
