@@ -1,6 +1,6 @@
-# PLACAR NEURON — Voz + HTML + Arduino
+# PLACAR NEURON — Voz + HTML + Arduino (Multiplataforma: Windows, macOS e Linux)
 
-import os, glob, json, logging, queue, random, threading, time, unicodedata, warnings, webbrowser
+import os, sys, glob, json, logging, queue, random, threading, time, unicodedata, warnings, webbrowser
 from collections import deque
 
 import numpy as np
@@ -12,8 +12,10 @@ from rapidfuzz import fuzz, process
 
 
 def _registrar_dlls_cuda():
-    # Coloca as DLLs do CUDA (cuBLAS/cuDNN, instaladas via pip) no caminho de busca,
-    # p/ o CTranslate2 usar a GPU. Sem as libs nvidia-*, o app simplesmente roda em CPU.
+    # Apenas no Windows: adiciona as DLLs do CUDA (cuBLAS/cuDNN, instaladas via pip)
+    # ao caminho de busca para o CTranslate2 usar a GPU NVIDIA.
+    if os.name != "nt":
+        return
     try:
         import nvidia
     except ImportError:
@@ -21,13 +23,15 @@ def _registrar_dlls_cuda():
     raiz = list(nvidia.__path__)[0]
     for pasta in {os.path.dirname(p) for p in glob.glob(os.path.join(raiz, "**", "*.dll"), recursive=True)}:
         os.environ["PATH"] = pasta + os.pathsep + os.environ["PATH"]
-        try:
-            os.add_dll_directory(pasta)
-        except OSError:
-            pass
+        if hasattr(os, "add_dll_directory"):
+            try:
+                os.add_dll_directory(pasta)
+            except OSError:
+                pass
 
 
 _registrar_dlls_cuda()  # precisa rodar ANTES de importar o faster_whisper (que carrega o CTranslate2)
+import ctranslate2
 from faster_whisper import WhisperModel
 
 warnings.filterwarnings("ignore")
@@ -37,18 +41,45 @@ logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
 
 # ============================== CONFIGURAÇÕES ==============================
-# Modelo de voz na GPU NVIDIA (máxima precisão). 
-# Sem placa de vídeo, troque por: "small", "cpu", "int8". -> aperte CRTL + F, busque por beam_size e altere de 5 para 1
-# Outras opções de precisão x peso: "medium"/"small"/"base"/"tiny" - trocar no WHISPER_MODEL
-WHISPER_MODEL, WHISPER_DEVICE, COMPUTE_TYPE = "large-v3", "cuda", "float16"
-SERIAL_PORT, BAUD_RATE = "COM8", 9600        # o código detecta a porta sozinho; se a detecção falhar, usa esta porta fixa
-SAMPLERATE, FLASK_PORT = 16000, 8080         
+# Modo de execução do Whisper:
+# - "auto": usa GPU NVIDIA (large-v3) se disponível no Windows/Linux; caso contrário (macOS ou PC sem GPU), usa CPU (small).
+# - "cpu":  força execução no processador ("small", "cpu", "int8", beam_size=1).
+# - "gpu":  força execução na placa NVIDIA ("large-v3", "cuda", "float16", beam_size=5).
+MODO_VOZ = "auto"
 
-# Detector de fala caseiro. Cada bloco dura ~0.25s (BLOCKSIZE/SAMPLERATE).
-SILENCIO_LIMIAR = 350    # volume médio, abaixo disso = silêncio
-SILENCIO_BLOCOS = 4      # silêncio contínuo (~1s) que encerra a fala
+
+def _detectar_config_whisper(modo="auto"):
+    tem_cuda = False
+    if sys.platform != "darwin":  # macOS não possui suporte a CUDA
+        try:
+            tem_cuda = ctranslate2.get_cuda_device_count() > 0
+        except Exception:
+            tem_cuda = False
+
+    if modo == "gpu" or (modo == "auto" and tem_cuda):
+        return "large-v3", "cuda", "float16", 5
+    return "small", "cpu", "int8", 1
+
+
+WHISPER_MODEL, WHISPER_DEVICE, COMPUTE_TYPE, BEAM_SIZE = _detectar_config_whisper(MODO_VOZ)
+
+# Porta serial padrão caso a detecção automática não encontre o Arduino
+if os.name == "nt":
+    SERIAL_PORT = "COM8"
+elif sys.platform == "darwin":
+    SERIAL_PORT = "/dev/cu.usbserial-110"
+else:
+    SERIAL_PORT = "/dev/ttyUSB0"
+
+BAUD_RATE = 9600
+SAMPLERATE, FLASK_PORT = 16000, 8080
+
+# Detector de fala por volume. Cada bloco dura ~0.25s (BLOCKSIZE/SAMPLERATE).
+# Se o ambiente for muito silencioso ou o microfone baixo, ajuste entre 350 e 600.
+SILENCIO_LIMIAR = 600    # volume médio mínimo; abaixo disso é considerado silêncio
+SILENCIO_BLOCOS = 4      # silêncio contínuo (~1s) que encerra a captura da frase
 MIN_BLOCOS_FALA = 3      # falas mais curtas que isso (~0.75s) são ruído e são ignoradas
-PRE_ROLL_BLOCOS = 3      # blocos guardados ANTES da fala, para não cortar o início
+PRE_ROLL_BLOCOS = 3      # blocos guardados ANTES da fala, para não cortar o início das palavras
 BLOCKSIZE       = 4000   # amostras por bloco de áudio
 
 
@@ -63,14 +94,18 @@ random.shuffle(ENIGMAS)  # ordem aleatória a cada execução do jogo
 # voz: "carregando" (subindo o modelo/microfone) -> "ouvindo" (pronto) -> "erro" (microfone falhou).
 # ativo: quando False, o reconhecimento ignora tudo exceto o comando de "ativar microfone".
 # encerrar: False / "confirmando" (esperando confirmação na tela) / "encerrando" (fechando).
-estado = {"enigma_index": 0, "tela": "pergunta", "total": len(ENIGMAS), "feedback": None, "feedback_contador": 0,
-          "menu": False, "voz": "carregando", "ativo": True, "encerrar": False}
+estado = {
+    "enigma_index": 0, "tela": "pergunta", "total": len(ENIGMAS),
+    "feedback": None, "feedback_contador": 0,
+    "menu": False, "voz": "carregando", "ativo": True, "encerrar": False
+}
 
 
 # ============================== COMANDOS DE VOZ ==============================
 def limpar_texto(t):
     # Normaliza para comparação: remove acentos, baixa a caixa e tira espaços das pontas.
     return ''.join(c for c in unicodedata.normalize('NFD', t) if unicodedata.category(c) != 'Mn').lower().strip() if t else ""
+
 
 # Chaves já em forma normalizada: limpar_texto cuida da fala recebida.
 COMANDOS_ENIGMA = {
@@ -102,13 +137,13 @@ COMANDOS_MIC = {
     "pausar microfone": False, "pausar comandos": False, "silenciar microfone": False,
 }
 
-# Comando único para ENCERRAR a aplicação, sem fuzzy, pra nunca disparar por engano. 
+# Comando único para ENCERRAR a aplicação, sem fuzzy, pra nunca disparar por engano.
 # Pede confirmação na tela antes de encerrar.
 COMANDOS_ENCERRAR = (
     "encerrar aplicacao", "encerrar a aplicacao", "encerrar programa", "encerrar o programa"
 )
 
-# Formas de dizer uma alternativa. Casadas como TRECHO da fala. Inclui erros comuns
+# Formas de dizer uma alternativa. Casadas como TRECHO da fala. Inclui erros comuns de transcrição.
 MAPA_FRASES = {
     "alternativa a": "a", "letra a": "a", "opção a": "a",
     "alternativa b": "b", "letra b": "b", "opção b": "b", "letra bê": "b", "resposta bê": "b",
@@ -118,12 +153,10 @@ MAPA_FRASES = {
 }
 
 # Pré-normaliza e ordena (mais longas primeiro, p/ a frase específica vencer a genérica).
-# Feito uma vez aqui em vez de a cada fala dentro do loop de reconhecimento.
 ENIGMA_ORDENADO  = sorted(((limpar_texto(f), a) for f, a in COMANDOS_ENIGMA.items()), key=lambda x: len(x[0]), reverse=True)
 ARDUINO_ORDENADO = sorted(((limpar_texto(f), c) for f, c in COMANDOS_ARDUINO.items()), key=lambda x: len(x[0]), reverse=True)
 FRASES_ORDENADO  = sorted(((limpar_texto(f), l) for f, l in MAPA_FRASES.items()), key=lambda x: len(x[0]), reverse=True)
-
-MIC_ORDENADO = sorted(((limpar_texto(f), a) for f, a in COMANDOS_MIC.items()), key=lambda x: len(x[0]), reverse=True)
+MIC_ORDENADO     = sorted(((limpar_texto(f), a) for f, a in COMANDOS_MIC.items()), key=lambda x: len(x[0]), reverse=True)
 
 # Listas só com as frases (para a busca por similaridade).
 ENIGMA_FRASES  = [f for f, _ in ENIGMA_ORDENADO]
@@ -134,9 +167,7 @@ LIMIAR_FUZZY = 85  # similaridade mínima (0-100) p/ aceitar um comando aproxima
 
 
 def casar_fuzzy(texto, frases, mapa_ordenado):
-    # Acha o comando mais PARECIDO com a fala (tolera variações da transcrição, 
-    # ex.: 'mostra a resposta' = 'mostrar resposta'.
-    # Retorna o valor associado, ou None se nada passar do limiar.
+    # Acha o comando mais parecido com a fala (tolera pequenas variações na transcrição).
     melhor = process.extractOne(texto, frases, scorer=fuzz.WRatio, score_cutoff=LIMIAR_FUZZY)
     if melhor is None:
         return None
@@ -156,46 +187,63 @@ def detectar_letra(texto):
 # ============================== ARDUINO ==============================
 arduino = None
 
-# Pistas para reconhecer a porta do Arduino entre as portas USB do PC.
-ARDUINO_VIDS   = {0x2341, 0x2A03, 0x1A86, 0x0403, 0x10C4}  # Arduino oficial, CH340, FTDI, CP210x (clones)
-ARDUINO_PISTAS = ("arduino", "ch340", "ch341", "usb-serial", "usb serial", "wch", "cp210", "ftdi")
+# Pistas para reconhecer a porta do Arduino entre as portas USB (Windows, macOS e Linux).
+ARDUINO_VIDS     = {0x2341, 0x2A03, 0x1A86, 0x0403, 0x10C4}  # Arduino oficial, CH340, FTDI, CP210x
+ARDUINO_PISTAS   = ("arduino", "ch340", "ch341", "usb-serial", "usb serial", "usbserial", "usbmodem", "wch", "cp210", "ftdi", "ttyacm", "ttyusb")
+PORTAS_IGNORADAS = ("bluetooth", "debug-console", "wlan-debug")
+
+
+def _normalizar_porta(device):
+    # No macOS, /dev/cu.* evita travamentos de controle de fluxo que ocorrem com /dev/tty.*
+    if sys.platform == "darwin" and device.startswith("/dev/tty."):
+        return device.replace("/dev/tty.", "/dev/cu.", 1)
+    return device
+
 
 def detectar_porta_arduino():
-    # Procura a porta do Arduino automaticamente. Retorna o nome (ex.: 'COM8') ou None.
-    portas = list(list_ports.comports())
-    # 1) Casa por VID conhecido ou por palavra típica na descrição/fabricante
-    for p in portas:
-        desc = f"{p.description} {p.manufacturer or ''}".lower()
-        if p.vid in ARDUINO_VIDS or any(k in desc for k in ARDUINO_PISTAS):
-            return p.device
-    # 2) Se só existe uma porta serial no PC, assume que é o Arduino
-    if len(portas) == 1:
-        return portas[0].device
+    # Procura a porta do Arduino automaticamente em Windows, macOS ou Linux.
+    portas_validas = []
+    for p in list_ports.comports():
+        info = f"{p.device} {p.description} {p.manufacturer or ''}".lower()
+        if any(ign in info for ign in PORTAS_IGNORADAS):
+            continue
+        portas_validas.append(p)
+        if p.vid in ARDUINO_VIDS or any(k in info for k in ARDUINO_PISTAS):
+            return _normalizar_porta(p.device)
+
+    # Se houver apenas uma porta serial externa válida no computador, assume que é o Arduino
+    if len(portas_validas) == 1:
+        return _normalizar_porta(portas_validas[0].device)
     return None
 
+
 def conectar_arduino():
-    # Conecta ao Arduino na porta detectada (ou no SERIAL_PORT fixo). Sem placa, segue offline.
+    # Conecta ao Arduino na porta detectada (ou no SERIAL_PORT padrão). Sem placa, segue offline.
     global arduino
     porta = detectar_porta_arduino() or SERIAL_PORT
     try:
         arduino = serial.Serial(porta, BAUD_RATE, timeout=1)
-        time.sleep(2)  # o Arduino reinicia ao abrir a serial; espera ele subir
+        time.sleep(2)  # o Arduino reinicia ao abrir a serial; aguarda a inicialização
         print(f"[OK] Arduino conectado na porta {porta}.")
     except Exception:
         print(f"[AVISO] Arduino não detectado (tentou {porta}). Iniciando em modo offline.")
 
+
 def enviar_arduino(cmd):
     if arduino and arduino.is_open:
-        arduino.write(cmd.encode()); print(f"[LED] Comando '{cmd}' enviado.")
+        arduino.write(cmd.encode())
+        print(f"[LED] Comando '{cmd}' enviado.")
     else:
         print(f"[LED] Ignorado (Arduino offline) - '{cmd}'")
 
 
 # ============================== LÓGICA DO JOGO ==============================
-def limpar_feedback(): estado["feedback"] = None
+def limpar_feedback():
+    estado["feedback"] = None
+
 
 def encerrar_app():
-    # Fecha o Arduino e encerra o processo inteiro (todas as threads).
+    # Fecha a conexão serial e encerra o processo inteiro (todas as threads).
     print("[SISTEMA] Encerrando a aplicação...")
     try:
         if arduino and arduino.is_open:
@@ -203,6 +251,7 @@ def encerrar_app():
     except Exception:
         pass
     os._exit(0)
+
 
 def processar_texto(texto):
     # Interpreta uma fala transcrita e aplica o comando correspondente, se houver.
@@ -214,15 +263,14 @@ def processar_texto(texto):
     if alvo is None:
         alvo = casar_fuzzy(texto_limpo, MIC_FRASES, MIC_ORDENADO)
 
-    # Desativado: o ÚNICO comando aceito é o de ATIVAR. Todo o resto — inclusive
-    # encerrar e a confirmação — é ignorado enquanto o microfone está mudo.
+    # Desativado: o ÚNICO comando aceito é o de ATIVAR.
     if not estado["ativo"]:
         if alvo is True:
             estado["ativo"] = True
             print("[SISTEMA] Microfone ativado")
         return
 
-    # Ativo: aplica ativar/desativar e para por aqui.
+    # Ativo: aplica ativar/desativar e encerra aqui.
     if alvo is not None:
         estado["ativo"] = alvo
         print(f"[SISTEMA] Microfone {'ativado' if alvo else 'desativado'}")
@@ -232,14 +280,14 @@ def processar_texto(texto):
     if estado["encerrar"] == "confirmando":
         if "confirm" in texto_limpo or "pode encerrar" in texto_limpo:
             print("[SISTEMA] Encerramento confirmado por voz.")
-            estado["encerrar"] = "encerrando"          # deixa a tela mostrar antes de fechar
+            estado["encerrar"] = "encerrando"
             threading.Timer(0.8, encerrar_app).start()
         elif "cancel" in texto_limpo or "continuar" in texto_limpo or "nao" in texto_limpo:
             estado["encerrar"] = False
             print("[SISTEMA] Encerramento cancelado.")
-        return  # ignora qualquer outra coisa enquanto aguarda confirmação
+        return
 
-    # Comando único de ENCERRAR (sem fuzzy) → pede confirmação na tela.
+    # Comando único de ENCERRAR (sem fuzzy) -> pede confirmação na tela.
     if any(p in texto_limpo for p in COMANDOS_ENCERRAR):
         estado["encerrar"] = "confirmando"
         print("[SISTEMA] Pedido de encerramento — aguardando confirmação na tela.")
@@ -248,27 +296,34 @@ def processar_texto(texto):
     # 1) Navegação entre enigmas — casamento exato (trecho da fala)
     for frase, acao in ENIGMA_ORDENADO:
         if frase in texto_limpo:
-            estado["feedback"] = None; executar_acao_enigma(acao); return
+            estado["feedback"] = None
+            executar_acao_enigma(acao)
+            return
 
     # 2) Placar de LEDs (Arduino) — casamento exato
     for frase, cmd in ARDUINO_ORDENADO:
         if frase in texto_limpo:
-            enviar_arduino(cmd); return
+            enviar_arduino(cmd)
+            return
 
-    # 3) Fallback por SIMILARIDADE: se nada casou exato, aceita o comando mais
-    #    parecido (tolera 'mostra a resposta', etc.).
+    # 3) Fallback por SIMILARIDADE: aceita comandos aproximados
     acao = casar_fuzzy(texto_limpo, ENIGMA_FRASES, ENIGMA_ORDENADO)
     if acao:
-        estado["feedback"] = None; executar_acao_enigma(acao); return
+        estado["feedback"] = None
+        executar_acao_enigma(acao)
+        return
     cmd = casar_fuzzy(texto_limpo, ARDUINO_FRASES, ARDUINO_ORDENADO)
     if cmd:
-        enviar_arduino(cmd); return
+        enviar_arduino(cmd)
+        return
 
     # 4) Resposta da pergunta só é avaliada na tela de pergunta
-    if estado["tela"] != "pergunta": return
+    if estado["tela"] != "pergunta":
+        return
 
     letra = detectar_letra(texto_limpo)
-    if letra is None: return  # fala não era um comando nem uma alternativa
+    if letra is None:
+        return  # fala não era um comando nem uma alternativa
 
     enigma = ENIGMAS[estado["enigma_index"]]
     if letra == enigma["correta"]:
@@ -276,9 +331,11 @@ def processar_texto(texto):
         print(f"[ACERTO] Alternativa correta: '{letra.upper()}'")
     else:
         # Marca erro; o contador faz o HTML disparar a animação só uma vez por erro.
-        estado["feedback"] = "erro"; estado["feedback_contador"] += 1
+        estado["feedback"] = "erro"
+        estado["feedback_contador"] += 1
         print(f"[ERRO] Alternativa '{letra.upper()}' (correta: '{enigma['correta'].upper()}')")
-        threading.Timer(8.0, limpar_feedback).start()  # limpa o feedback após 8s
+        threading.Timer(8.0, limpar_feedback).start()
+
 
 def executar_acao_enigma(acao):
     # Aplica navegação/troca de tela. Ignora silenciosamente os limites (1º/último enigma).
@@ -300,46 +357,77 @@ def executar_acao_enigma(acao):
 # ============================== FLASK (servidor da página) ==============================
 app = Flask(__name__)
 
+
 @app.route("/")
-def index(): return send_file(os.path.join(DIRETORIO_ATUAL, "index.html"))
+def index():
+    return send_file(os.path.join(DIRETORIO_ATUAL, "index.html"))
+
 
 @app.route("/Estampa_Neuron.png")
 def estampa():
-    try: return send_file(os.path.join(DIRETORIO_ATUAL, "Estampa_Neuron.png"))
-    except Exception: return "", 404
+    try:
+        return send_file(os.path.join(DIRETORIO_ATUAL, "Estampa_Neuron.png"))
+    except Exception:
+        return "", 404
+
 
 @app.route("/logo_neuron.png")
 def logo():
-    try: return send_file(os.path.join(DIRETORIO_ATUAL, "logo_neuron.png"))
-    except Exception: return "", 404
+    try:
+        return send_file(os.path.join(DIRETORIO_ATUAL, "logo_neuron.png"))
+    except Exception:
+        return "", 404
+
 
 @app.route("/estado")
 def get_estado():
-    #Snapshot do estado para o HTML (consultado a cada 300ms).
+    # Snapshot do estado para o HTML (consultado a cada 300ms).
     e = ENIGMAS[estado["enigma_index"]]
     voz = "desativado" if (estado["voz"] == "ouvindo" and not estado["ativo"]) else estado["voz"]
     return jsonify({
         "enigma_index": estado["enigma_index"], "enigma_numero": estado["enigma_index"] + 1,
         "total": estado["total"], "tela": estado["tela"],
         "pergunta": e["pergunta"], "alternativas": e["alternativas"], "correta": e["correta"],
-        "resposta": e["alternativas"][e["correta"]],  # texto da correta (tela de resposta)
+        "resposta": e["alternativas"][e["correta"]],
         "feedback": estado["feedback"], "feedback_contador": estado["feedback_contador"],
-        "menu": estado["menu"],  # painel de comandos aberto/fechado
-        "voz": voz,              # carregando / ouvindo / desativado / erro
-        "encerrar": estado["encerrar"],  # False / "confirmando" / "encerrando"
+        "menu": estado["menu"],
+        "voz": voz,
+        "encerrar": estado["encerrar"],
     })
+
 
 # Rotas dos botões da página (espelham os comandos de voz).
 @app.route("/proximo")
-def proximo(): estado["feedback"] = None; executar_acao_enigma("proximo"); return "", 204
+def proximo():
+    estado["feedback"] = None
+    executar_acao_enigma("proximo")
+    return "", 204
+
+
 @app.route("/anterior")
-def anterior(): estado["feedback"] = None; executar_acao_enigma("anterior"); return "", 204
+def anterior():
+    estado["feedback"] = None
+    executar_acao_enigma("anterior")
+    return "", 204
+
+
 @app.route("/resposta")
-def mostrar_resposta(): estado["tela"] = "resposta"; return "", 204
+def mostrar_resposta():
+    estado["tela"] = "resposta"
+    return "", 204
+
+
 @app.route("/pergunta")
-def mostrar_pergunta(): estado["tela"] = "pergunta"; return "", 204
+def mostrar_pergunta():
+    estado["tela"] = "pergunta"
+    return "", 204
+
+
 @app.route("/menu/<acao>")
-def menu(acao): estado["menu"] = (acao == "abrir"); return "", 204
+def menu(acao):
+    estado["menu"] = (acao == "abrir")
+    return "", 204
+
 
 @app.route("/encerrar/<acao>")
 def encerrar(acao):
@@ -350,33 +438,49 @@ def encerrar(acao):
         estado["encerrar"] = False
     return "", 204
 
-def iniciar_flask(): app.run(port=FLASK_PORT, debug=False, use_reloader=False)
+
+def iniciar_flask():
+    app.run(host="127.0.0.1", port=FLASK_PORT, debug=False, use_reloader=False)
 
 
 # ============================== RECONHECIMENTO DE VOZ ==============================
-def transcrever(model, audio_bytes):
+def transcrever(model, audio_bytes, beam_size=1):
     # Transcreve o áudio (int16) e devolve o texto, descartando ruído/alucinação.
     audio = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
     segments, _ = model.transcribe(
-        audio, language="pt", beam_size=5, # 5 = mais preciso (a GPU dá conta; no CPU use 1)
-        vad_filter=True,                   # Silero VAD: trecho sem fala vira nada (corta ruído/silêncio)
+        audio,
+        language="pt",
+        beam_size=beam_size,               # 1 na CPU (rápido) | 5 na GPU NVIDIA (máxima precisão)
+        vad_filter=False,                  # desativado p/ compatibilidade com Python 3.14+ (o volume já filtra silêncio)
         no_speech_threshold=0.6,           # prob. de silêncio acima disso = descarta o segmento
         condition_on_previous_text=False,  # cada fala é independente (não arrasta contexto)
-        # SEM initial_prompt de comandos: era ele que o modelo "ecoava" no silêncio,
-        # disparando comandos fantasmas (ex.: transcrever a lista inteira sem ninguém falar).
     )
     # Guarda extra: ignora segmentos que o próprio modelo marcou como provável silêncio.
     return " ".join(s.text for s in segments if s.no_speech_prob < 0.6).strip()
 
+
 def iniciar_whisper():
-    print("\n[Aguarde] Carregando o motor de voz (faster-whisper)...")
+    global WHISPER_MODEL, WHISPER_DEVICE, COMPUTE_TYPE, BEAM_SIZE
+    print(f"\n[Aguarde] Carregando o motor de voz ({WHISPER_MODEL} em {WHISPER_DEVICE.upper()})...")
     try:
         model = WhisperModel(WHISPER_MODEL, device=WHISPER_DEVICE, compute_type=COMPUTE_TYPE)
     except Exception as e:
-        estado["voz"] = "erro"
-        print(f"[ERRO] Falha ao carregar o motor de voz: {e}")
-        return
-    print("[OK] Sistema de voz pronto. Escutando comandos...\n")
+        # Se a GPU falhar por falta de driver/cuDNN no Windows ou Linux, recua para CPU automaticamente
+        if WHISPER_DEVICE == "cuda":
+            print(f"[AVISO] Falha ao iniciar na GPU ({e}). Alternando para CPU...")
+            WHISPER_MODEL, WHISPER_DEVICE, COMPUTE_TYPE, BEAM_SIZE = "small", "cpu", "int8", 1
+            try:
+                model = WhisperModel(WHISPER_MODEL, device=WHISPER_DEVICE, compute_type=COMPUTE_TYPE)
+            except Exception as e_cpu:
+                estado["voz"] = "erro"
+                print(f"[ERRO] Falha ao carregar o motor de voz: {e_cpu}")
+                return
+        else:
+            estado["voz"] = "erro"
+            print(f"[ERRO] Falha ao carregar o motor de voz: {e}")
+            return
+
+    print(f"[OK] Sistema de voz pronto ({WHISPER_DEVICE.upper()}). Escutando comandos...\n")
 
     fila_audio = queue.Queue()   # blocos crus vindos do microfone (preenchida no callback)
     fila_fala  = queue.Queue()   # falas já recortadas, prontas p/ transcrever
@@ -388,16 +492,17 @@ def iniciar_whisper():
         # Thread dedicada: transcreve e processa sem travar a captura de áudio.
         while True:
             audio = fila_fala.get()
-            # Comando ao vivo: áudio antigo é inútil. Se a fila acumulou enquanto a
-            # transcrição rodava, descarta tudo e fica só com a fala MAIS RECENTE — assim
-            # frases velhas não saem com atraso conforme o jogo avança.
+            # Comando ao vivo: descarta falas atrasadas na fila e processa só a mais recente.
             descartadas = 0
             while not fila_fala.empty():
-                audio = fila_fala.get_nowait(); descartadas += 1
+                audio = fila_fala.get_nowait()
+                descartadas += 1
             if descartadas:
                 print(f"[VOZ] {descartadas} fala(s) atrasada(s) descartada(s).")
-            texto = transcrever(model, audio)
-            if texto: processar_texto(texto)
+            texto = transcrever(model, audio, beam_size=BEAM_SIZE)
+            if texto:
+                processar_texto(texto)
+
     threading.Thread(target=worker_transcricao, daemon=True).start()
 
     # Detecção de fala por volume, com pre-roll p/ não perder o começo das palavras.
@@ -406,16 +511,19 @@ def iniciar_whisper():
 
     try:
         with sd.RawInputStream(samplerate=SAMPLERATE, blocksize=BLOCKSIZE, dtype="int16", channels=1, callback=callback):
-            estado["voz"] = "ouvindo"  # microfone aberto: a página tira o aviso de status
+            estado["voz"] = "ouvindo"  # microfone aberto: a página atualiza o status
             while True:
                 bloco = fila_audio.get()
                 if np.abs(np.frombuffer(bloco, dtype=np.int16)).mean() >= SILENCIO_LIMIAR:
                     # Está falando: ao iniciar, recupera os blocos do pre-roll.
-                    if not falando: falando, buffer_fala = True, list(pre_roll)
-                    buffer_fala.append(bloco); blocos_silencio = 0
+                    if not falando:
+                        falando, buffer_fala = True, list(pre_roll)
+                    buffer_fala.append(bloco)
+                    blocos_silencio = 0
                 elif falando:
                     # Em silêncio durante uma fala: conta até confirmar o fim.
-                    buffer_fala.append(bloco); blocos_silencio += 1
+                    buffer_fala.append(bloco)
+                    blocos_silencio += 1
                     if blocos_silencio >= SILENCIO_BLOCOS:
                         if len(buffer_fala) >= MIN_BLOCOS_FALA:
                             fila_fala.put(b"".join(buffer_fala))  # entrega e já volta a escutar
@@ -439,8 +547,7 @@ if __name__ == "__main__":
 
     try:
         iniciar_whisper()
-        # Se a voz falhou, iniciar_whisper retorna; mantém o processo vivo p/ o Flask
-        # continuar servindo a página (que mostra o aviso de microfone indisponível).
+        # Se a voz falhou, mantém o processo vivo p/ o Flask continuar servindo a página.
         if estado["voz"] == "erro":
             print("[INFO] Reconhecimento de voz desativado. A página segue no ar (Ctrl+C para sair).")
             while True:
@@ -448,4 +555,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\n[SISTEMA] Encerrado pelo usuário. Até logo!")
     finally:
-        if arduino and arduino.is_open: arduino.close()
+        if arduino and arduino.is_open:
+            arduino.close()
