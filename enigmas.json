@@ -34,7 +34,7 @@
   },
   {
     "id": 4,
-    "pergunta": "Sou pura, mas não sou água. Tenho o olhar limpo, mas não enxergo o mal. Sou também livre de culpa, malícia e má intenção. No mais, todas as crianças me têm. Quem sou eu?",
+    "pergunta": "Sou pura, mas não sou água. Tenho o olhar limpo, não enxergo o mal. Sou também livre de culpa, malícia e má intenção. No mais, todas as crianças me têm. Quem sou eu?",
     "alternativas": {
       "a": "Visão",
       "b": "Pureza",
@@ -45,7 +45,7 @@
   },
   {
     "id": 5,
-    "pergunta": "Não tenho forma, mas posso te dominar. Às vezes te faço rir, às vezes chorar. Nasço sem aviso dentro de você, mas sou possível de identificar, a interpretação de uma reação. Quem eu sou?",
+    "pergunta": "Não tenho forma, mas posso te dominar. Às vezes te faço rir, às vezes chorar. Nasço sem aviso dentro de você, mas sou possível de identificar. Sou a interpretação de uma reação. Quem eu sou?",
     "alternativas": {
       "a": "Sentimento",
       "b": "Pensamento",
@@ -122,7 +122,7 @@
   },
   {
     "id": 12,
-    "pergunta": "Sou a silhueta atrás das cortinas, o caminho ocultado pela neblina, quem veste o véu que esconde a verdade e joga a lenha no fogo da curiosidade. Sou o que transcende a compreensão racional, o que alimenta todos os enigmas e as coisas inexplicáveis. Quem sou eu?",
+    "pergunta": "Sou a silhueta atrás das cortinas, o caminho oculto pela neblina, quem veste o véu que esconde a verdade e joga a lenha no fogo da curiosidade. Sou o que transcende a compreensão racional, o que alimenta todos os enigmas e as coisas inexplicáveis. Quem sou eu?",
     "alternativas": {
       "a": "Segredo",
       "b": "Magia",
@@ -166,7 +166,7 @@
   },
   {
     "id": 16,
-    "pergunta": "O suspiro relaxado de um coração antes apertado, como se todo o peso de seus ombros desaparecesse em um instante. Quem sou eu?",
+    "pergunta": "O suspiro relaxado de um coração antes apertado, como se todo o peso de seus ombros desaparecesse em um instante mas de forma emocional. Quem sou eu?",
     "alternativas": {
       "a": "Cura",
       "b": "Descanso",
@@ -221,7 +221,7 @@
   },
   {
     "id": 21,
-    "pergunta": "Sou um estado onde o que foi ou será não importa, pois vou para onde o vento me levar. Tenho a oportunidade de agir por vontade própria, e sou considerada por muitos um valor. Quem sou eu?",
+    "pergunta": "Sou um estado onde o que foi ou será não importa, pois vou para onde o vento me levar. Tenho a oportunidade de agir por vontade própria, e sou considerada por muitos um valor imprescendível. Quem sou eu?",
     "alternativas": {
       "a": "Liberdade",
       "b": "Anarquia",
@@ -254,9 +254,9 @@
   },
   {
     "id": 24,
-    "pergunta": "Uma quadro pendurado na parede levemente torto, a folha de um livro que não para de se mover ao vento e a linha que se recusa a ser reta. Sou a sensação de que tudo está errado e nada dá certo. Quem sou eu?",
+    "pergunta": "Um quadro pendurado na parede levemente torto, a folha de um livro que não para de se mover ao vento e a linha que se recusa a ser reta. Sou o sentimento de que tudo está errado e nada dá certo. Quem sou eu?",
     "alternativas": {
-      "a": "Agonia",
+      "a": "Tristeza",
       "b": "Perfeccionismo",
       "c": "Raiva",
       "d": "Frustração"
@@ -300,8 +300,8 @@
     "id": 28,
     "pergunta": "Um dia você olha para trás e vê que eu passei escorrendo, sem que você percebesse. Posso ser motivo de orgulho ou melancolia e costumo causar nostalgia. Hoje você olha para mim mais velho, mais maduro. Sou também os rastros que você construiu durante toda a sua vida. Quem sou eu?",
     "alternativas": {
-      "a": "Memória",
-      "b": "História",
+      "a": "Resquício",
+      "b": "Saudosismo",
       "c": "Fotografia",
       "d": "Passado"
     },
@@ -342,7 +342,7 @@
   },
   {
     "id": 32,
-    "pergunta": "Sou um sentimento profundo de conexão, de cuidado e de manutenção do que importa. Quem sou eu?",
+    "pergunta": "Sou uma virtude que gera profundidade de conexão em um relacionamento. Sou a força de uma palavra que é mantida, mesmo que por fidelidade ou por medo. Quem sou eu?",
     "alternativas": {
       "a": "Aliança",
       "b": "Amizade",
